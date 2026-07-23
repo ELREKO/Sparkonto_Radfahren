@@ -70,6 +70,15 @@
   .card.dark .toggle{color:var(--lane-bright)}
   .card.dark .chart-title{color:#e7ece7}
   .card.dark .chart-legend .lg{color:#9aa39a}
+  .card.info{background:#fff;border-color:var(--hair-strong)}
+  .guide{font-size:13.5px;line-height:1.62;color:var(--muted)}
+  .guide p{margin-bottom:12px}
+  .guide p:last-child{margin-bottom:0}
+  .guide b{color:var(--ink)}
+  .guide i{color:var(--ink);font-style:normal;font-weight:600}
+  .guide-list{list-style:none;margin:0 0 12px;padding:0}
+  .guide-list li{position:relative;padding-left:16px;margin-bottom:7px}
+  .guide-list li::before{content:"";position:absolute;left:0;top:8px;width:7px;height:3px;border-radius:2px;background:var(--road)}
   .odo{margin-top:16px}
 
   .row{display:flex;gap:10px;align-items:flex-end}
@@ -180,8 +189,64 @@
 <div class="wrap">
   <div class="eyebrow">Fahrrad-Sparkonto</div>
 
+  <div data-c="anleitung" class="card info">
+    <h2>Anleitung <button class="toggle collapse">ausblenden</button></h2>
+    <div class="guide">
+      <p><b>Was diese App macht.</b> Sie rechnet aus, was du sparst, wenn du das Rad statt des Autos nimmst — Sprit, Geld und CO&#8322; — und h&#228;lt daneben deine Bewegung fest. Dazu kommen ein Habit Tracker f&#252;r eine Gewohnheit deiner Wahl sowie Felder f&#252;r Gewicht und Blutdruck. Alles l&#228;sst sich als CSV exportieren.</p>
 
-  <div class="card green">
+      <p><b>Deine Daten bleiben auf deinem Ger&#228;t.</b> Es gibt keinen Server, kein Konto und keine Anmeldung. Alle Eintr&#228;ge liegen ausschlie&#223;lich im Speicher deines Browsers — niemand sonst kann sie sehen, auch nicht, wer dir den Link geschickt hat. Das hei&#223;t umgekehrt: L&#246;schst du die Browserdaten oder nutzt ein privates Fenster, sind die Eintr&#228;ge weg. Ein Wechsel auf ein anderes Handy &#252;bertr&#228;gt nichts. Nutze daher ab und zu den CSV-Export als Sicherung.</p>
+
+      <p><b>Als App aufs Handy legen.</b> Die App l&#228;uft im Browser, l&#228;sst sich aber wie eine echte App ablegen — danach funktioniert sie auch ohne Internet:</p>
+      <ul class="guide-list">
+        <li><b>Android:</b> in Chrome das Men&#252; &#8942; &#246;ffnen &#8594; &#8222;Installieren und Verkn&#252;pfung erstellen&#8220; (je nach Version auch &#8222;App installieren&#8220; oder &#8222;Zum Startbildschirm hinzuf&#252;gen&#8220;). Bei Samsung Internet: Men&#252; &#8594; &#8222;Seite hinzuf&#252;gen zu&#8220; &#8594; &#8222;Startbildschirm&#8220;.</li>
+        <li><b>iPhone / iPad:</b> die Seite in <b>Safari</b> &#246;ffnen &#8594; Teilen-Symbol unten &#8594; &#8222;Zum Home-Bildschirm&#8220;. In anderen Browsern fehlt dieser Punkt.</li>
+        <li><b>Computer:</b> in Chrome oder Edge das Installieren-Symbol rechts in der Adressleiste anklicken.</li>
+      </ul>
+
+      <p><b>Zum Start einmal einrichten.</b> Trag unter <i>Einstellungen</i> den Verbrauch deines Autos, den aktuellen Spritpreis, deinen Arbeitsweg und dein &#248;-Tempo ein. Im Habit Tracker legst du dein Wochenziel fest — 4 von 7 Tagen ist bewusst kein Alles-oder-nichts.</p>
+
+      <p><b>Kurz zur Einordnung.</b> Gewicht und Blutdruck sind reine Protokolle: Die App bewertet keine Werte und stellt keine Diagnosen. Was deine Messwerte bedeuten, geh&#246;rt in ein Gespr&#228;ch mit deiner &#196;rztin oder deinem Arzt. Auch die &#8222;Gesunde Zeit&#8220; ist nur eine grobe Veranschaulichung, keine Vorhersage.</p>
+    </div>
+  </div>
+
+  <div data-c="fahrt" class="card green">
+    <h2>Fahrt eintragen <button class="toggle collapse">ausblenden</button></h2>
+    <button class="commute" id="addCommute">🚲 Arbeitsweg eintragen · <span id="commuteKm">30</span> km</button>
+    <div class="sep">oder einzeln</div>
+    <div class="seg" id="seg">
+      <button data-type="save" class="active">Statt Auto</button>
+      <button data-type="fun">Nur Spaß</button>
+    </div>
+    <div class="row">
+      <div class="in">
+        <label for="km">Kilometer</label>
+        <input id="km" type="number" inputmode="decimal" min="0" step="0.1" placeholder="z. B. 12">
+      </div>
+      <div class="in">
+        <label for="date">Datum</label>
+        <input id="date" type="date">
+      </div>
+      <button class="go" id="add">Eintragen</button>
+    </div>
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <div data-c="habit" class="card green">
+    <h2><span>Habit Tracker <span class="h2note" id="fastWeeksMet"></span></span><button class="toggle collapse">ausblenden</button></h2>
+    <button class="fast-btn" id="toggleFast">Heute als erledigt markieren</button>
+    <div class="weekstrip" id="weekstrip"></div>
+    <div class="progress">
+      <div class="progress-top"><span>Diese Woche</span><b id="fastText">0 / 4 Tage</b></div>
+      <div class="lbar" id="fastBar"><span></span></div>
+    </div>
+    <div class="goal-row">
+      <label for="fastGoal">Wochenziel</label>
+      <input id="fastGoal" type="number" min="1" max="7" step="1">
+      <span>von 7 Tagen</span>
+    </div>
+  </div>
+
+  <div data-c="gewicht" class="card green">
     <h2>Gewicht <span class="h2-actions"><button class="toggle" id="toggleWlist">Einträge</button><button class="toggle collapse">ausblenden</button></span></h2>
     <div class="wstats">
       <div class="wstat"><div class="n" id="wCurrent">—</div><div class="u">Aktuell</div></div>
@@ -211,7 +276,7 @@
     </div>
   </div>
 
-  <div class="card green">
+  <div data-c="blutdruck" class="card green">
     <h2>Blutdruck <span class="h2-actions"><button class="toggle" id="exportBp">CSV</button><button class="toggle collapse">ausblenden</button></span></h2>
     <div class="wstats">
       <div class="wstat"><div class="n" id="bpLast">—</div><div class="u">Letzte Messung</div></div>
@@ -237,44 +302,7 @@
     <button class="toggle" id="toggleBplist" style="margin-top:12px">Messungen anzeigen</button>
   </div>
 
-  <div class="card green">
-    <h2>Fahrt eintragen <button class="toggle collapse">ausblenden</button></h2>
-    <button class="commute" id="addCommute">🚲 Arbeitsweg eintragen · <span id="commuteKm">30</span> km</button>
-    <div class="sep">oder einzeln</div>
-    <div class="seg" id="seg">
-      <button data-type="save" class="active">Statt Auto</button>
-      <button data-type="fun">Nur Spaß</button>
-    </div>
-    <div class="row">
-      <div class="in">
-        <label for="km">Kilometer</label>
-        <input id="km" type="number" inputmode="decimal" min="0" step="0.1" placeholder="z. B. 12">
-      </div>
-      <div class="in">
-        <label for="date">Datum</label>
-        <input id="date" type="date">
-      </div>
-      <button class="go" id="add">Eintragen</button>
-    </div>
-    <div class="preview" id="preview"></div>
-  </div>
-
-  <div class="card green">
-    <h2><span>Habit Tracker <span class="h2note" id="fastWeeksMet"></span></span><button class="toggle collapse">ausblenden</button></h2>
-    <button class="fast-btn" id="toggleFast">Heute als erledigt markieren</button>
-    <div class="weekstrip" id="weekstrip"></div>
-    <div class="progress">
-      <div class="progress-top"><span>Diese Woche</span><b id="fastText">0 / 4 Tage</b></div>
-      <div class="lbar" id="fastBar"><span></span></div>
-    </div>
-    <div class="goal-row">
-      <label for="fastGoal">Wochenziel</label>
-      <input id="fastGoal" type="number" min="1" max="7" step="1">
-      <span>von 7 Tagen</span>
-    </div>
-  </div>
-
-  <div class="card">
+  <div data-c="einstellungen" class="card">
     <h2>Einstellungen <button class="toggle collapse">ausblenden</button></h2>
     <div id="settingsBody">
       <div class="settings-grid">
@@ -299,13 +327,13 @@
     </div>
   </div>
 
-  <div class="card">
+  <div data-c="verlauf" class="card">
     <h2>Verlauf <span class="h2-actions"><button class="toggle" id="exportCsv">CSV export</button><button class="toggle collapse">ausblenden</button></span></h2>
     <div id="weeks"></div>
     <div class="empty hidden" id="empty"><b>Noch nichts geloggt</b>Trag deine erste Radfahrt oben ein.</div>
   </div>
 
-  <div class="card dark">
+  <div data-c="diagramme" class="card dark">
     <h2>Diagramme <button class="toggle collapse">ausblenden</button></h2>
     <div id="chartsBody">
       <div class="chart-block">
@@ -323,7 +351,7 @@
     </div>
   </div>
 
-  <div class="odo">
+  <div data-c="sprit" class="odo">
     <div class="odo-head"><span class="odo-label">Gespart durchs Radfahren</span><button class="toggle collapse odo-collapse">ausblenden</button></div>
     <div class="odo-value" id="totalMoney">0,00 €</div>
     <div class="odo-sub" id="ridesCount">Noch keine Fahrt eingetragen</div>
@@ -334,7 +362,7 @@
     </div>
   </div>
 
-  <div class="odo health">
+  <div data-c="gesundheit" class="odo health">
     <div class="odo-head"><span class="odo-label">Gesundheits-Konto</span><button class="toggle collapse odo-collapse">ausblenden</button></div>
     <div class="dual">
       <div>
@@ -363,6 +391,7 @@ let rides = [];
 let weights = [];
 let fasts = [];
 let bp = [];
+let collapsedState = {};
 let rideType = "save";
 let expandedWeeks = new Set();
 let expandedBpWeeks = new Set();
@@ -383,7 +412,9 @@ function load(){
   try{ const v = localStorage.getItem("bike-weights"); if(v) weights = JSON.parse(v); }catch(e){}
   try{ const v = localStorage.getItem("bike-fasts"); if(v) fasts = JSON.parse(v); }catch(e){}
   try{ const v = localStorage.getItem("bike-bp"); if(v) bp = JSON.parse(v); }catch(e){}
+  try{ const v = localStorage.getItem("bike-collapsed"); if(v) collapsedState = JSON.parse(v) || {}; }catch(e){}
 }
+function saveCollapsed(){ if(hasStorage) try{ localStorage.setItem("bike-collapsed", JSON.stringify(collapsedState)); }catch(e){} }
 function saveSettings(){ if(hasStorage) try{ localStorage.setItem("bike-settings", JSON.stringify(settings)); }catch(e){} }
 function saveRides(){ if(hasStorage) try{ localStorage.setItem("bike-rides", JSON.stringify(rides)); }catch(e){} }
 function saveWeights(){ if(hasStorage) try{ localStorage.setItem("bike-weights", JSON.stringify(weights)); }catch(e){} }
@@ -936,10 +967,16 @@ function bind(){
   $("goal").addEventListener("change", () => { const raw=$("goal").value.replace(",","."); const v=parseFloat(raw); settings.goal = (v>0)?v:null; saveSettings(); renderWeight(); });
 
   document.querySelectorAll(".collapse").forEach(btn => {
+    const box = btn.closest(".card, .odo");
+    const key = box ? box.getAttribute("data-c") : null;
+    if(key && collapsedState[key]){
+      box.classList.add("collapsed");
+      btn.textContent = "einblenden";
+    }
     btn.onclick = () => {
-      const box = btn.closest(".card, .odo");
       const collapsed = box.classList.toggle("collapsed");
       btn.textContent = collapsed ? "einblenden" : "ausblenden";
+      if(key){ collapsedState[key] = collapsed; saveCollapsed(); }
     };
   });
   $("toggleWlist").onclick = () => {
