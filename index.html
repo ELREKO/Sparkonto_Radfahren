@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fahrrad-Sparkonto</title>
+<meta name="theme-color" content="#1A1D1A">
+<meta name="description" content="Sparkonto, Bewegung und Gewohnheiten fürs Radfahren – lokal im Browser.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sparkonto">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E7E9E1; --card:#F4F5F0; --ink:#191C19; --muted:#6B7168;
+    --lane:#1F9E5A; --lane-bright:#34C878; --road:#E8B93B; --asphalt:#1A1D1A;
+    --danger:#c0392b; --hair:rgba(25,28,25,0.10); --hair-strong:rgba(25,28,25,0.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;padding:24px 16px 64px;display:flex;justify-content:center}
+  .wrap{width:100%;max-width:520px}
+  .eyebrow{font-family:"Space Grotesk";font-size:12px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .eyebrow::after{content:"";flex:1;height:2px;background-image:linear-gradient(90deg,var(--road) 0 10px,transparent 10px 18px);background-size:18px 2px}
+
+  .odo{background:var(--asphalt);border-radius:18px;padding:26px 24px 22px;position:relative;overflow:hidden;box-shadow:0 12px 30px -18px rgba(25,28,25,.6)}
+  .odo::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background-image:linear-gradient(90deg,var(--road) 0 14px,transparent 14px 26px);background-size:26px 3px;opacity:.55}
+  .odo-label{font-family:"Space Grotesk";font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#7f8a7f}
+  .odo-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .odo.collapsed > :not(.odo-head){display:none !important}
+  .odo-collapse{color:#9aa39a}
+  .odo-collapse:hover{color:#e7ece7}
+  .odo-value{font-family:"Space Mono";font-weight:700;color:var(--lane-bright);font-size:clamp(44px,13vw,64px);line-height:1.05;margin:6px 0 2px;letter-spacing:-.01em;text-shadow:0 0 24px rgba(52,200,120,.25)}
+  .odo-sub{font-size:13px;color:#9aa39a}
+  .odo-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:20px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px}
+  .field{text-align:center}
+  .field .n{font-family:"Space Mono";font-weight:700;font-size:19px;color:#e7ece7}
+  .field .u{font-family:"Space Grotesk";font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7f8a7f;margin-top:3px}
+
+  .odo.health{margin-top:16px}
+  .dual{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+  .dual .h-val{font-family:"Space Mono";font-weight:700;color:var(--lane-bright);font-size:clamp(30px,8.5vw,42px);line-height:1.02;text-shadow:0 0 22px rgba(52,200,120,.22)}
+  .dual .h-val small{font-size:.45em;color:#9aa39a;font-weight:400;letter-spacing:.02em}
+  .dual .h-lbl{font-family:"Space Grotesk";font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#7f8a7f;margin-top:5px}
+  .who{margin-top:18px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px}
+  .who-top{display:flex;justify-content:space-between;align-items:baseline;font-family:"Space Grotesk";font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#7f8a7f;margin-bottom:9px}
+  .who-top b{font-family:"Space Mono";color:#e7ece7;font-size:13px;letter-spacing:0;font-weight:700}
+  .bar{height:8px;background:rgba(255,255,255,.09);border-radius:6px;overflow:hidden}
+  .bar>span{display:block;height:100%;width:0;background:var(--lane-bright);border-radius:6px;transition:width .5s ease}
+  .bar.full>span{background:var(--road)}
+  .disc{font-size:11px;color:#69726a;margin-top:14px;line-height:1.55}
+
+  .card{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:20px;margin-top:16px}
+  .card h2{font-family:"Space Grotesk";font-size:15px;font-weight:600;letter-spacing:.02em;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .card.collapsed > :not(h2){display:none !important}
+  .card.collapsed h2{margin-bottom:0}
+  .h2-actions{display:flex;align-items:center;gap:14px}
+
+  /* colour variants */
+  .card.green{background:#C6E8D1;border-color:rgba(31,158,90,.30)}
+  .card.green .commute{background:#fff}
+  .card.green .fast-btn:not(.done){background:#fff}
+  .card.dark{background:var(--asphalt);border-color:rgba(255,255,255,.07)}
+  .card.dark h2{color:#e7ece7}
+  .card.dark .toggle{color:var(--lane-bright)}
+  .card.dark .chart-title{color:#e7ece7}
+  .card.dark .chart-legend .lg{color:#9aa39a}
+  .odo{margin-top:16px}
+
+  .row{display:flex;gap:10px;align-items:flex-end}
+  .in{flex:1}
+  label{display:block;font-family:"Space Grotesk";font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  input{width:100%;background:#fff;border:1px solid var(--hair-strong);border-radius:10px;padding:12px 12px;font-family:"Space Mono";font-size:16px;color:var(--ink);outline:none;transition:border-color .15s,box-shadow .15s}
+  input:focus{border-color:var(--lane);box-shadow:0 0 0 3px rgba(31,158,90,.16)}
+  input::placeholder{color:#b4b8ae}
+
+  button.go{background:var(--lane);color:#fff;border:none;border-radius:10px;padding:12px 18px;font-family:"Space Grotesk";font-weight:600;font-size:15px;cursor:pointer;white-space:nowrap;transition:background .15s,transform .05s}
+  button.go:hover{background:#1b8b50}
+  button.go:active{transform:translateY(1px)}
+
+  button.commute{width:100%;background:rgba(31,158,90,.10);color:var(--lane);border:1.5px solid var(--lane);border-radius:10px;padding:13px;font-family:"Space Grotesk";font-weight:600;font-size:15px;cursor:pointer;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s,transform .05s}
+  button.commute:hover{background:rgba(31,158,90,.18)}
+  button.commute:active{transform:translateY(1px)}
+  .sep{font-family:"Space Grotesk";font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:center;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  .sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--hair)}
+
+  .seg{display:flex;gap:6px;margin-bottom:14px}
+  .seg button{flex:1;background:#fff;border:1px solid var(--hair-strong);border-radius:10px;padding:9px;font-family:"Space Grotesk";font-weight:600;font-size:13px;color:var(--muted);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+  .seg button.active{background:var(--lane);border-color:var(--lane);color:#fff}
+
+  .preview{margin-top:12px;font-size:13.5px;color:var(--muted);min-height:20px}
+  .preview b{color:var(--lane);font-family:"Space Mono"}
+
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .toggle{font-family:"Space Grotesk";font-size:13px;font-weight:600;color:var(--lane);background:none;border:none;cursor:pointer;padding:0}
+  .hint{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5}
+
+  .wstats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:2px 0 14px}
+  .wstat{text-align:center}
+  .wstat .n{font-family:"Space Mono";font-weight:700;font-size:20px;color:var(--ink)}
+  .wstat .n.down{color:var(--lane)}
+  .wstat .n.up{color:var(--danger)}
+  .wstat .u{font-family:"Space Grotesk";font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+  .chart-wrap{background:#fff;border:1px solid var(--hair);border-radius:12px;padding:8px 6px 4px;margin-top:4px}
+  .chart-title{font-family:"Space Grotesk";font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ink);margin-bottom:6px}
+  .chart-legend{display:flex;gap:16px;margin-bottom:2px}
+  .chart-legend .lg{display:flex;align-items:center;gap:6px;font-family:"Space Grotesk";font-size:11px;font-weight:600;color:var(--muted)}
+  .chart-legend .sw{width:12px;height:3px;border-radius:2px;display:inline-block}
+  .chart{width:100%;height:auto;display:block}
+  .chart-empty{text-align:center;color:var(--muted);font-size:13px;padding:34px 12px}
+  .goal-row{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:12px;color:var(--muted)}
+  .goal-row label{margin:0;white-space:nowrap}
+  .goal-row input{max-width:120px}
+  .wlist{list-style:none;margin-top:12px;max-height:200px;overflow:auto}
+  .wlist li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 2px;border-top:1px solid var(--hair)}
+  .wlist .d{font-family:"Space Mono";font-size:13px;color:var(--muted)}
+  .wlist .k{font-family:"Space Mono";font-weight:700;font-size:15px;margin-left:auto;margin-right:12px}
+
+  .fast-btn{width:100%;background:rgba(31,158,90,.10);color:var(--lane);border:1.5px solid var(--lane);border-radius:10px;padding:15px;font-family:"Space Grotesk";font-weight:600;font-size:15px;cursor:pointer;margin-bottom:18px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s,transform .05s}
+  .fast-btn:hover{background:rgba(31,158,90,.18)}
+  .fast-btn:active{transform:translateY(1px)}
+  .fast-btn.done{background:var(--lane);color:#fff}
+  .weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:2px}
+  .weekstrip .day{display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;background:none;border:none;padding:0}
+  .weekstrip .dot{width:100%;aspect-ratio:1;max-width:42px;border-radius:11px;background:#fff;border:1.5px solid var(--hair-strong);display:flex;align-items:center;justify-content:center;font-family:"Space Mono";font-size:13px;color:var(--muted);transition:background .15s,border-color .15s,color .15s}
+  .weekstrip .day.done .dot{background:var(--lane);border-color:var(--lane);color:#fff}
+  .weekstrip .day.today .dot{border-color:var(--ink);border-width:2px}
+  .weekstrip .day.future{opacity:.4;cursor:default}
+  .weekstrip .dl{font-family:"Space Grotesk";font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .progress{margin-top:16px}
+  .progress-top{display:flex;justify-content:space-between;align-items:baseline;font-family:"Space Grotesk";font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+  .progress-top b{font-family:"Space Mono";color:var(--ink);font-size:13px;letter-spacing:0;font-weight:700}
+  .lbar{height:8px;background:rgba(25,28,25,.08);border-radius:6px;overflow:hidden}
+  .lbar>span{display:block;height:100%;width:0;background:var(--lane);border-radius:6px;transition:width .4s ease}
+  .lbar.full>span{background:var(--road)}
+  .h2note{font-family:"Space Grotesk";font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+
+  .bplist{list-style:none;margin-top:14px}
+  .bplist li{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:11px 2px;border-top:1px solid var(--hair)}
+  .bplist .bp-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .bplist .bp-when{font-family:"Space Mono";font-size:12px;color:var(--muted)}
+  .bplist .bp-val{font-family:"Space Mono";font-weight:700;font-size:16px;color:var(--ink)}
+  .bplist .bp-unit{font-weight:400;font-size:11px;color:var(--muted)}
+  .bplist .bp-note{font-size:12.5px;color:var(--muted);line-height:1.4;word-break:break-word}
+  .tag.fast{color:var(--lane);background:rgba(31,158,90,.12)}
+
+  .week{border-bottom:1px solid var(--hair)}
+  .week:last-child{border-bottom:none}
+  .week-head{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;padding:14px 2px;text-align:left;color:var(--ink)}
+  .week-head .wk-title{font-family:"Space Grotesk";font-weight:600;font-size:13.5px;white-space:nowrap}
+  .week-head .wk-sum{flex:1;font-family:"Space Mono";font-size:11.5px;color:var(--muted);text-align:right}
+  .week-head .chev{font-size:12px;color:var(--muted);transition:transform .2s}
+  .week-head.open .chev{transform:rotate(90deg)}
+  .week-body{list-style:none;padding:0 0 6px;margin:0}
+  .week-body.hidden{display:none}
+  .week-body li{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:12px;padding:11px 2px;border-top:1px solid var(--hair)}
+  .week-body .date{font-family:"Space Mono";font-size:13px;color:var(--muted);min-width:52px}
+  .week-body .km{font-family:"Space Grotesk";font-weight:600;font-size:14px}
+  .week-body .save{font-family:"Space Mono";font-weight:700;font-size:15px;color:var(--lane);text-align:right}
+  .week-body .tag{font-family:"Space Grotesk";font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:rgba(25,28,25,.06);padding:4px 9px;border-radius:20px;justify-self:end}
+  .del{background:none;border:none;color:#b4b8ae;cursor:pointer;font-size:18px;line-height:1;padding:4px;border-radius:6px;transition:color .15s,background .15s}
+  .del:hover{color:var(--danger);background:rgba(192,57,43,.08)}
+
+  .empty{text-align:center;color:var(--muted);font-size:14px;padding:20px 0}
+  .empty b{display:block;color:var(--ink);font-family:"Space Grotesk";margin-bottom:4px}
+  .hidden{display:none}
+  @media (max-width:420px){
+    .settings-grid{grid-template-columns:1fr}
+    .week-body li{grid-template-columns:auto 1fr auto;gap:8px}
+    .week-body .km{grid-column:2}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Fahrrad-Sparkonto</div>
+
+
+  <div class="card green">
+    <h2>Gewicht <span class="h2-actions"><button class="toggle" id="toggleWlist">Einträge</button><button class="toggle collapse">ausblenden</button></span></h2>
+    <div class="wstats">
+      <div class="wstat"><div class="n" id="wCurrent">—</div><div class="u">Aktuell</div></div>
+      <div class="wstat"><div class="n" id="wDelta">—</div><div class="u">Veränderung</div></div>
+      <div class="wstat"><div class="n" id="wGoalRem">—</div><div class="u">bis Ziel</div></div>
+    </div>
+    <div class="goal-row">
+      <label for="goal">Zielgewicht</label>
+      <input id="goal" type="number" inputmode="decimal" min="0" step="0.1" placeholder="optional">
+      <span>kg</span>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div class="in">
+        <label for="wkg">Gewicht (kg)</label>
+        <input id="wkg" type="number" inputmode="decimal" min="0" step="0.1" placeholder="z. B. 78,5">
+      </div>
+      <div class="in">
+        <label for="wdate">Datum</label>
+        <input id="wdate" type="date">
+      </div>
+      <button class="go" id="addWeight">Speichern</button>
+    </div>
+    <ul class="wlist hidden" id="wlist"></ul>
+    <div class="hint" id="wExportRow" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Nur ein Trend-Tracker — kein Diät- oder Kalorienrechner.</span>
+      <button class="toggle" id="exportWeight">CSV</button>
+    </div>
+  </div>
+
+  <div class="card green">
+    <h2>Blutdruck <span class="h2-actions"><button class="toggle" id="exportBp">CSV</button><button class="toggle collapse">ausblenden</button></span></h2>
+    <div class="wstats">
+      <div class="wstat"><div class="n" id="bpLast">—</div><div class="u">Letzte Messung</div></div>
+      <div class="wstat"><div class="n" id="bpPulseLast">—</div><div class="u">Puls</div></div>
+      <div class="wstat"><div class="n" id="bpCount">0</div><div class="u">Messungen</div></div>
+    </div>
+    <div class="row">
+      <div class="in"><label for="bpSys">Systolisch</label><input id="bpSys" type="number" inputmode="numeric" min="0" step="1" placeholder="z. B. 120"></div>
+      <div class="in"><label for="bpDia">Diastolisch</label><input id="bpDia" type="number" inputmode="numeric" min="0" step="1" placeholder="z. B. 80"></div>
+      <div class="in"><label for="bpPulse">Puls</label><input id="bpPulse" type="number" inputmode="numeric" min="0" step="1" placeholder="opt."></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div class="in"><label for="bpDate">Datum</label><input id="bpDate" type="date"></div>
+      <div class="in"><label for="bpTime">Uhrzeit</label><input id="bpTime" type="time"></div>
+      <button class="go" id="addBp">Speichern</button>
+    </div>
+    <div class="in" style="margin-top:12px">
+      <label for="bpNote">Bemerkung</label>
+      <input id="bpNote" type="text" placeholder="optional, z. B. morgens / nach Sport / Ruhe">
+    </div>
+    <div class="preview" id="bpPreview"></div>
+    <div class="hidden" id="bplist"></div>
+    <button class="toggle" id="toggleBplist" style="margin-top:12px">Messungen anzeigen</button>
+  </div>
+
+  <div class="card green">
+    <h2>Fahrt eintragen <button class="toggle collapse">ausblenden</button></h2>
+    <button class="commute" id="addCommute">🚲 Arbeitsweg eintragen · <span id="commuteKm">30</span> km</button>
+    <div class="sep">oder einzeln</div>
+    <div class="seg" id="seg">
+      <button data-type="save" class="active">Statt Auto</button>
+      <button data-type="fun">Nur Spaß</button>
+    </div>
+    <div class="row">
+      <div class="in">
+        <label for="km">Kilometer</label>
+        <input id="km" type="number" inputmode="decimal" min="0" step="0.1" placeholder="z. B. 12">
+      </div>
+      <div class="in">
+        <label for="date">Datum</label>
+        <input id="date" type="date">
+      </div>
+      <button class="go" id="add">Eintragen</button>
+    </div>
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <div class="card green">
+    <h2><span>Habit Tracker <span class="h2note" id="fastWeeksMet"></span></span><button class="toggle collapse">ausblenden</button></h2>
+    <button class="fast-btn" id="toggleFast">Heute als erledigt markieren</button>
+    <div class="weekstrip" id="weekstrip"></div>
+    <div class="progress">
+      <div class="progress-top"><span>Diese Woche</span><b id="fastText">0 / 4 Tage</b></div>
+      <div class="lbar" id="fastBar"><span></span></div>
+    </div>
+    <div class="goal-row">
+      <label for="fastGoal">Wochenziel</label>
+      <input id="fastGoal" type="number" min="1" max="7" step="1">
+      <span>von 7 Tagen</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Einstellungen <button class="toggle collapse">ausblenden</button></h2>
+    <div id="settingsBody">
+      <div class="settings-grid">
+        <div class="in">
+          <label for="cons">Verbrauch (l/100 km)</label>
+          <input id="cons" type="number" inputmode="decimal" min="0" step="0.1">
+        </div>
+        <div class="in">
+          <label for="price">Spritpreis (€/l)</label>
+          <input id="price" type="number" inputmode="decimal" min="0" step="0.01">
+        </div>
+        <div class="in">
+          <label for="commute">Arbeitsweg (km, hin &amp; zurück)</label>
+          <input id="commute" type="number" inputmode="decimal" min="0" step="0.5">
+        </div>
+        <div class="in">
+          <label for="speed">Ø Tempo (km/h)</label>
+          <input id="speed" type="number" inputmode="decimal" min="1" step="1">
+        </div>
+      </div>
+      <div class="hint">Jede Fahrt wird mit dem Preis gespeichert, der beim Eintragen gilt — so bleibt deine Ersparnis auch bei schwankenden Preisen korrekt. Das Ø-Tempo schätzt aus den km die Bewegungsminuten fürs Gesundheits-Konto.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Verlauf <span class="h2-actions"><button class="toggle" id="exportCsv">CSV export</button><button class="toggle collapse">ausblenden</button></span></h2>
+    <div id="weeks"></div>
+    <div class="empty hidden" id="empty"><b>Noch nichts geloggt</b>Trag deine erste Radfahrt oben ein.</div>
+  </div>
+
+  <div class="card dark">
+    <h2>Diagramme <button class="toggle collapse">ausblenden</button></h2>
+    <div id="chartsBody">
+      <div class="chart-block">
+        <div class="chart-title">Gewicht (kg)</div>
+        <div class="chart-wrap"><div id="chart"></div></div>
+      </div>
+      <div class="chart-block" style="margin-top:20px">
+        <div class="chart-title">Blutdruck (mmHg)</div>
+        <div class="chart-legend">
+          <span class="lg"><span class="sw" style="background:#2F6FED"></span>Systolisch</span>
+          <span class="lg"><span class="sw" style="background:var(--lane)"></span>Diastolisch</span>
+        </div>
+        <div class="chart-wrap"><div id="bpChart"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="odo">
+    <div class="odo-head"><span class="odo-label">Gespart durchs Radfahren</span><button class="toggle collapse odo-collapse">ausblenden</button></div>
+    <div class="odo-value" id="totalMoney">0,00 €</div>
+    <div class="odo-sub" id="ridesCount">Noch keine Fahrt eingetragen</div>
+    <div class="odo-fields">
+      <div class="field"><div class="n" id="totalKm">0</div><div class="u">km geradelt</div></div>
+      <div class="field"><div class="n" id="totalLiters">0,0</div><div class="u">Liter Sprit</div></div>
+      <div class="field"><div class="n" id="totalCo2">0,0</div><div class="u">kg CO₂</div></div>
+    </div>
+  </div>
+
+  <div class="odo health">
+    <div class="odo-head"><span class="odo-label">Gesundheits-Konto</span><button class="toggle collapse odo-collapse">ausblenden</button></div>
+    <div class="dual">
+      <div>
+        <div class="h-val" id="lifeGain">0,0 <small>Std</small></div>
+        <div class="h-lbl">Gesunde Zeit</div>
+      </div>
+      <div>
+        <div class="h-val" id="moveTotal">0,0 <small>Std</small></div>
+        <div class="h-lbl">Bewegung gesamt</div>
+      </div>
+    </div>
+    <div class="who">
+      <div class="who-top"><span>WHO-Ziel diese Woche</span><b id="whoText">0 / 150 Min</b></div>
+      <div class="bar" id="whoBar"><span></span></div>
+    </div>
+    <div class="disc">„Gesunde Zeit" ist bewusst einfach gerechnet — grob 1 Minute Vitalität je Minute Bewegung. Es geht dabei weniger um mehr Lebensjahre als um mehr bewegliche, gesunde Jahre und aufgeschobene Krankheiten. In einer Stanford-Langzeitstudie trat Pflegebedürftigkeit bei regelmäßig Aktiven rund 16 Jahre später auf (der Tod nur ~3–7 Jahre später). Es zählt die Gewohnheit, nicht der einzelne Tag.</div>
+  </div>
+</div>
+
+<script>
+const CO2_PER_L = 2.37;
+const WHO_WEEKLY_MIN = 150;
+const LIFE_MIN_PER_ACTIVE_MIN = 1.0;
+let settings = { cons: 6, price: 1.75, commute: 30, speed: 16, goal: null, fastGoal: 4 };
+let rides = [];
+let weights = [];
+let fasts = [];
+let bp = [];
+let rideType = "save";
+let expandedWeeks = new Set();
+let expandedBpWeeks = new Set();
+let firstRender = true;
+let firstBpRender = true;
+let hasStorage = (function(){ try{ localStorage.setItem("__t__","1"); localStorage.removeItem("__t__"); return true; }catch(e){ return false; } })();
+
+const $ = id => document.getElementById(id);
+const deFmt = (n, d=2) => n.toLocaleString("de-DE", {minimumFractionDigits:d, maximumFractionDigits:d});
+const euro = n => deFmt(n,2) + " €";
+const fmtDM = d => String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+".";
+const localISO = d => { const x=new Date(d); return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0"); };
+
+function load(){
+  if(!hasStorage) return;
+  try{ const v = localStorage.getItem("bike-settings"); if(v) settings = {...settings, ...JSON.parse(v)}; }catch(e){}
+  try{ const v = localStorage.getItem("bike-rides"); if(v) rides = JSON.parse(v); }catch(e){}
+  try{ const v = localStorage.getItem("bike-weights"); if(v) weights = JSON.parse(v); }catch(e){}
+  try{ const v = localStorage.getItem("bike-fasts"); if(v) fasts = JSON.parse(v); }catch(e){}
+  try{ const v = localStorage.getItem("bike-bp"); if(v) bp = JSON.parse(v); }catch(e){}
+}
+function saveSettings(){ if(hasStorage) try{ localStorage.setItem("bike-settings", JSON.stringify(settings)); }catch(e){} }
+function saveRides(){ if(hasStorage) try{ localStorage.setItem("bike-rides", JSON.stringify(rides)); }catch(e){} }
+function saveWeights(){ if(hasStorage) try{ localStorage.setItem("bike-weights", JSON.stringify(weights)); }catch(e){} }
+function saveFasts(){ if(hasStorage) try{ localStorage.setItem("bike-fasts", JSON.stringify(fasts)); }catch(e){} }
+function saveBp(){ if(hasStorage) try{ localStorage.setItem("bike-bp", JSON.stringify(bp)); }catch(e){} }
+
+function litersFor(km, cons){ return km/100*cons; }
+function minutesFor(km, speed){ return km/(speed||16)*60; }
+function mondayOf(dt){ const x=new Date(dt); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+function heroTime(min){
+  const h = min/60;
+  if(h >= 48) return { n: deFmt(h/24,1), u: "Tage" };
+  if(h >= 10) return { n: deFmt(h,0), u: "Std" };
+  return { n: deFmt(h,1), u: "Std" };
+}
+function isoWeek(date){
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = (d.getUTCDay()+6)%7;
+  d.setUTCDate(d.getUTCDate()-dayNum+3);
+  const firstThu = d.getTime();
+  const y = d.getUTCFullYear();
+  const jan4 = new Date(Date.UTC(y,0,4));
+  const jan4day = (jan4.getUTCDay()+6)%7;
+  jan4.setUTCDate(jan4.getUTCDate()-jan4day+3);
+  const week = 1 + Math.round((firstThu - jan4.getTime())/604800000);
+  return { year: y, week };
+}
+
+let animRaf = null;
+function setTotal(target){
+  const el = $("totalMoney");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce){ el.textContent = euro(target); return; }
+  const start = parseFloat((el.dataset.v||"0")); const t0 = performance.now(); const dur = 500;
+  cancelAnimationFrame(animRaf);
+  function step(t){
+    const p = Math.min(1,(t-t0)/dur); const e = 1-Math.pow(1-p,3);
+    el.textContent = euro(start+(target-start)*e);
+    if(p<1) animRaf = requestAnimationFrame(step); else el.dataset.v = target;
+  }
+  el.dataset.v = start; animRaf = requestAnimationFrame(step);
+}
+
+function render(){
+  let km=0, liters=0, money=0;
+  rides.forEach(r => { km+=r.km; liters+=r.liters; money+=r.money; });
+  setTotal(money);
+  $("totalKm").textContent = deFmt(km,0);
+  $("totalLiters").textContent = deFmt(liters,1);
+  $("totalCo2").textContent = deFmt(liters*CO2_PER_L,1);
+  $("ridesCount").textContent = rides.length
+    ? rides.length + (rides.length===1 ? " Fahrt gespeichert" : " Fahrten gespeichert")
+    : "Noch keine Fahrt eingetragen";
+
+  let activeMin=0, weekMin=0;
+  const monday = mondayOf(new Date());
+  rides.forEach(r => {
+    const m = minutesFor(r.km, r.speed || settings.speed);
+    activeMin += m;
+    if(new Date(r.date+"T00:00:00") >= monday) weekMin += m;
+  });
+  const lg = heroTime(activeMin*LIFE_MIN_PER_ACTIVE_MIN);
+  $("lifeGain").innerHTML = `${lg.n} <small>${lg.u}</small>`;
+  const mv = heroTime(activeMin);
+  $("moveTotal").innerHTML = `${mv.n} <small>${mv.u}</small>`;
+  const pct = Math.min(100, weekMin/WHO_WEEKLY_MIN*100);
+  $("whoText").textContent = `${deFmt(weekMin,0)} / ${WHO_WEEKLY_MIN} Min`;
+  const bar = $("whoBar");
+  bar.firstElementChild.style.width = pct.toFixed(0) + "%";
+  bar.classList.toggle("full", weekMin >= WHO_WEEKLY_MIN);
+
+  const weeksEl = $("weeks");
+  weeksEl.innerHTML = "";
+  const groups = {};
+  function ensureWeek(d){
+    const {year, week} = isoWeek(d);
+    const key = year+"-"+String(week).padStart(2,"0");
+    if(!groups[key]) groups[key] = { key, week, start: mondayOf(d), rides: [], fastDays: [] };
+    return groups[key];
+  }
+  rides.forEach(r => { ensureWeek(new Date(r.date+"T00:00:00")).rides.push(r); });
+  fasts.forEach(iso => { ensureWeek(new Date(iso+"T00:00:00")).fastDays.push(iso); });
+  const keys = Object.keys(groups).sort().reverse();
+  if(firstRender && keys.length){ expandedWeeks.add(keys[0]); }
+  firstRender = false;
+
+  keys.forEach(key => {
+    const g = groups[key];
+    let wkm=0, wmoney=0, wmin=0;
+    g.rides.forEach(r => { wkm+=r.km; wmoney+=r.money; wmin+=minutesFor(r.km, r.speed||settings.speed); });
+    const start = g.start; const end = new Date(start); end.setDate(end.getDate()+6);
+    const open = expandedWeeks.has(key);
+    const fastN = g.fastDays.length;
+    const fastPart = fastN ? ` · ${fastN}× Habit` : "";
+
+    const wk = document.createElement("div"); wk.className = "week";
+    const head = document.createElement("button");
+    head.className = "week-head" + (open ? " open" : "");
+    head.innerHTML = `<span class="wk-title">KW ${g.week} · ${fmtDM(start)}–${fmtDM(end)}</span>
+      <span class="wk-sum">${deFmt(wkm,0)} km · ${euro(wmoney)} · ${deFmt(wmin,0)} Min${fastPart}</span>
+      <span class="chev">▸</span>`;
+    const body = document.createElement("ul");
+    body.className = "week-body" + (open ? "" : " hidden");
+    g.rides.slice().sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id).forEach(r => {
+      const li = document.createElement("li");
+      const d = new Date(r.date+"T00:00:00");
+      const val = r.type==="fun"
+        ? `<span class="tag">Spaß</span>`
+        : `<span class="save">${euro(r.money)}</span>`;
+      li.innerHTML = `<span class="date">${fmtDM(d)}</span>
+        <span class="km">${deFmt(r.km,1).replace(/,0$/,"")} km</span>
+        ${val}
+        <button class="del" title="Löschen" aria-label="Eintrag löschen">×</button>`;
+      li.querySelector(".del").onclick = () => removeRide(r.id);
+      body.appendChild(li);
+    });
+    g.fastDays.slice().sort((a,b)=> b.localeCompare(a)).forEach(iso => {
+      const li = document.createElement("li");
+      const d = new Date(iso+"T00:00:00");
+      li.innerHTML = `<span class="date">${fmtDM(d)}</span>
+        <span class="km">Habit erledigt</span>
+        <span class="tag fast">Habit</span>
+        <button class="del" title="Entfernen" aria-label="Habit-Tag entfernen">×</button>`;
+      li.querySelector(".del").onclick = () => toggleFastDate(iso);
+      body.appendChild(li);
+    });
+    head.onclick = () => {
+      const isOpen = head.classList.toggle("open");
+      body.classList.toggle("hidden", !isOpen);
+      if(isOpen) expandedWeeks.add(key); else expandedWeeks.delete(key);
+    };
+    wk.appendChild(head); wk.appendChild(body); weeksEl.appendChild(wk);
+  });
+  $("empty").classList.toggle("hidden", (rides.length + fasts.length) > 0);
+
+  renderWeight();
+  renderFasting();
+  renderBp();
+}
+
+function toggleFastDate(iso){
+  if(fasts.includes(iso)) fasts = fasts.filter(d => d !== iso);
+  else fasts.push(iso);
+  saveFasts(); render();
+}
+
+function renderFasting(){
+  const goal = Math.max(1, Math.min(7, settings.fastGoal || 4));
+  const monday = mondayOf(new Date());
+  const todayIso = localISO(new Date());
+  const labels = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+  const strip = $("weekstrip");
+  strip.innerHTML = "";
+  let weekCount = 0;
+
+  for(let i=0;i<7;i++){
+    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    const iso = localISO(d);
+    const done = fasts.includes(iso);
+    const isToday = iso === todayIso;
+    const isFuture = iso > todayIso;
+    if(done) weekCount++;
+    const cell = document.createElement("button");
+    cell.className = "day" + (done?" done":"") + (isToday?" today":"") + (isFuture?" future":"");
+    cell.innerHTML = `<span class="dot">${done?"✓":""}</span><span class="dl">${labels[i]}</span>`;
+    if(!isFuture) cell.onclick = () => toggleFastDate(iso);
+    strip.appendChild(cell);
+  }
+
+  const btn = $("toggleFast");
+  const doneToday = fasts.includes(todayIso);
+  btn.classList.toggle("done", doneToday);
+  btn.textContent = doneToday ? "✓ Heute erledigt" : "Heute als erledigt markieren";
+
+  $("fastText").textContent = `${weekCount} / ${goal} Tage`;
+  const bar = $("fastBar");
+  bar.firstElementChild.style.width = Math.min(100, weekCount/goal*100).toFixed(0) + "%";
+  bar.classList.toggle("full", weekCount >= goal);
+
+  const byWeek = {};
+  fasts.forEach(iso => {
+    const {year, week} = isoWeek(new Date(iso+"T00:00:00"));
+    const k = year+"-"+week;
+    byWeek[k] = (byWeek[k]||0) + 1;
+  });
+  const met = Object.values(byWeek).filter(c => c >= goal).length;
+  $("fastWeeksMet").textContent = met > 0 ? `${met} ${met===1?"Woche":"Wochen"} mit Ziel ✓` : "";
+}
+
+function renderBp(){
+  const sortedAll = bp.slice().sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  const last = sortedAll.length ? sortedAll[0] : null;
+  $("bpLast").textContent = last ? `${last.sys}/${last.dia}` : "—";
+  $("bpPulseLast").textContent = (last && last.pulse!=null) ? String(last.pulse) : "—";
+  $("bpCount").textContent = String(bp.length);
+
+  const sortedAsc = bp.slice().sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time));
+  $("bpChart").innerHTML = bpChartSVG(sortedAsc);
+
+  const cont = $("bplist");
+  cont.innerHTML = "";
+  if(!bp.length){
+    cont.innerHTML = `<div class="empty" style="padding:12px 0"><b>Noch keine Messung</b>Trag oben deinen ersten Wert ein.</div>`;
+    return;
+  }
+
+  const groups = {};
+  bp.forEach(m => {
+    const {year, week} = isoWeek(new Date(m.date+"T00:00:00"));
+    const key = year+"-"+String(week).padStart(2,"0");
+    if(!groups[key]) groups[key] = { key, week, start: mondayOf(new Date(m.date+"T00:00:00")), items: [] };
+    groups[key].items.push(m);
+  });
+  const keys = Object.keys(groups).sort().reverse();
+  if(firstBpRender && keys.length){ expandedBpWeeks.add(keys[0]); }
+  firstBpRender = false;
+
+  keys.forEach(key => {
+    const g = groups[key];
+    const n = g.items.length;
+    const avgS = Math.round(g.items.reduce((s,m)=>s+m.sys,0)/n);
+    const avgD = Math.round(g.items.reduce((s,m)=>s+m.dia,0)/n);
+    const start = g.start; const end = new Date(start); end.setDate(end.getDate()+6);
+    const open = expandedBpWeeks.has(key);
+
+    const wk = document.createElement("div"); wk.className = "week";
+    const head = document.createElement("button");
+    head.className = "week-head" + (open ? " open" : "");
+    head.innerHTML = `<span class="wk-title">KW ${g.week} · ${fmtDM(start)}–${fmtDM(end)}</span>
+      <span class="wk-sum">${n} ${n===1?"Messung":"Messungen"} · Ø ${avgS}/${avgD}</span>
+      <span class="chev">▸</span>`;
+    const list = document.createElement("ul");
+    list.className = "bplist" + (open ? "" : " hidden");
+    g.items.slice().sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)).forEach(m => {
+      const d = new Date(m.date+"T00:00:00");
+      const li = document.createElement("li");
+      const pulsePart = (m.pulse!=null) ? ` · ${m.pulse} Puls` : "";
+      const notePart = m.note ? `<span class="bp-note">${escapeHtml(m.note)}</span>` : "";
+      li.innerHTML = `<div class="bp-main">
+          <span class="bp-when">${fmtDM(d)} ${m.time}</span>
+          <span class="bp-val">${m.sys}/${m.dia}<span class="bp-unit"> mmHg</span>${pulsePart}</span>
+          ${notePart}
+        </div>
+        <button class="del" title="Löschen" aria-label="Messung löschen">×</button>`;
+      li.querySelector(".del").onclick = () => removeBp(m.id);
+      list.appendChild(li);
+    });
+    head.onclick = () => {
+      const isOpen = head.classList.toggle("open");
+      list.classList.toggle("hidden", !isOpen);
+      if(isOpen) expandedBpWeeks.add(key); else expandedBpWeeks.delete(key);
+    };
+    wk.appendChild(head); wk.appendChild(list); cont.appendChild(wk);
+  });
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function addBp(){
+  const sys = parseInt(($("bpSys").value||"").replace(",","."), 10);
+  const dia = parseInt(($("bpDia").value||"").replace(",","."), 10);
+  const pulseRaw = ($("bpPulse").value||"").trim();
+  const pulse = pulseRaw ? parseInt(pulseRaw, 10) : null;
+  const date = $("bpDate").value || localISO(new Date());
+  const time = $("bpTime").value;
+  const note = ($("bpNote").value||"").trim();
+  const pv = $("bpPreview");
+  if(!(sys>0)){ pv.textContent = "Bitte einen systolischen Wert eingeben."; $("bpSys").focus(); return; }
+  if(!(dia>0)){ pv.textContent = "Bitte einen diastolischen Wert eingeben."; $("bpDia").focus(); return; }
+  if(!time){ pv.textContent = "Bitte eine Uhrzeit angeben."; $("bpTime").focus(); return; }
+  bp.push({ id: Date.now(), date, time, sys, dia, pulse: (pulse>0?pulse:null), note });
+  saveBp(); renderBp();
+  $("bpSys").value=""; $("bpDia").value=""; $("bpPulse").value=""; $("bpNote").value="";
+  pv.innerHTML = `✓ Gespeichert — <b>${sys}/${dia}</b> um ${time}`;
+  if($("bplist").classList.contains("hidden")){ $("toggleBplist").click(); }
+}
+function removeBp(id){ bp = bp.filter(m=>m.id!==id); saveBp(); renderBp(); }
+
+function renderWeight(){
+  const sorted = weights.slice().sort((a,b)=> a.date.localeCompare(b.date) || a.id-b.id);
+  const cur = sorted.length ? sorted[sorted.length-1].kg : null;
+  const first = sorted.length ? sorted[0].kg : null;
+  const goal = (typeof settings.goal === "number" && settings.goal > 0) ? settings.goal : null;
+
+  $("wCurrent").textContent = cur!=null ? deFmt(cur,1)+" kg" : "—";
+
+  const dEl = $("wDelta");
+  if(sorted.length >= 2){
+    const delta = cur - first;
+    const sign = delta < 0 ? "−" : (delta > 0 ? "+" : "");
+    dEl.textContent = sign + deFmt(Math.abs(delta),1) + " kg";
+    dEl.className = "n " + (delta < 0 ? "down" : (delta > 0 ? "up" : ""));
+  } else { dEl.textContent = "—"; dEl.className = "n"; }
+
+  const gEl = $("wGoalRem");
+  if(goal!=null && cur!=null){
+    const rem = cur - goal;
+    if(rem <= 0){ gEl.textContent = "erreicht"; gEl.className = "n down"; }
+    else { gEl.textContent = deFmt(rem,1)+" kg"; gEl.className = "n"; }
+  } else { gEl.textContent = "—"; gEl.className = "n"; }
+
+  $("chart").innerHTML = weightChartSVG(sorted, goal);
+
+  const list = $("wlist");
+  list.innerHTML = "";
+  sorted.slice().reverse().forEach(w => {
+    const li = document.createElement("li");
+    const d = new Date(w.date+"T00:00:00");
+    li.innerHTML = `<span class="d">${fmtDM(d)}${d.getFullYear()}</span>
+      <span class="k">${deFmt(w.kg,1)} kg</span>
+      <button class="del" title="Löschen">×</button>`;
+    li.querySelector(".del").onclick = () => removeWeight(w.id);
+    list.appendChild(li);
+  });
+}
+
+function weightChartSVG(sorted, goal){
+  if(!sorted.length){
+    return `<div class="chart-empty">Noch kein Gewicht eingetragen.<br>Trag unten deinen ersten Wert ein.</div>`;
+  }
+  const W=340, H=190, pad={l:36,r:14,t:14,b:24};
+  const xs = sorted.map(w => new Date(w.date+"T00:00:00").getTime());
+  const ys = sorted.map(w => w.kg);
+  const dataMin = Math.min(...ys), dataMax = Math.max(...ys);
+  let lo = dataMin, hi = dataMax;
+  if(goal!=null){ lo = Math.min(lo, goal); hi = Math.max(hi, goal); }
+  if(lo===hi){ lo -= 1; hi += 1; }
+  const padY = (hi-lo)*0.12 || 0.5;
+  lo -= padY; hi += padY;
+  const minX = Math.min(...xs), maxX = Math.max(...xs), spanX = (maxX-minX)||1;
+  const n = sorted.length;
+  const X = i => n===1 ? (pad.l + (W-pad.r))/2 : pad.l + ((xs[i]-minX)/spanX)*(W-pad.l-pad.r);
+  const Y = v => pad.t + (1-(v-lo)/(hi-lo))*(H-pad.t-pad.b);
+
+  const pts = sorted.map((w,i)=> X(i).toFixed(1)+","+Y(w.kg).toFixed(1));
+  const dots = sorted.map((w,i)=> `<circle cx="${X(i).toFixed(1)}" cy="${Y(w.kg).toFixed(1)}" r="3.2" fill="#1F9E5A"/>`).join("");
+  const line = n>1 ? `<polyline points="${pts.join(" ")}" fill="none" stroke="#1F9E5A" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>` : "";
+  const area = n>1 ? `<polygon points="${pad.l},${(H-pad.b)} ${pts.join(" ")} ${(W-pad.r)},${(H-pad.b)}" fill="rgba(31,158,90,0.10)"/>` : "";
+
+  let goalEl = "";
+  if(goal!=null){
+    const gy = Y(goal).toFixed(1);
+    goalEl = `<line x1="${pad.l}" y1="${gy}" x2="${W-pad.r}" y2="${gy}" stroke="#E8B93B" stroke-width="1.6" stroke-dasharray="5 4"/>
+      <text x="${W-pad.r}" y="${(gy-5)}" text-anchor="end" font-family="Space Mono, monospace" font-size="10" fill="#B8912E">Ziel ${deFmt(goal,1)}</text>`;
+  }
+
+  const yLabHi = `<text x="4" y="${(Y(dataMax)+4).toFixed(1)}" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${deFmt(dataMax,1)}</text>`;
+  const yLabLo = `<text x="4" y="${(Y(dataMin)+4).toFixed(1)}" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${deFmt(dataMin,1)}</text>`;
+  const dFirst = new Date(sorted[0].date+"T00:00:00");
+  const dLast = new Date(sorted[n-1].date+"T00:00:00");
+  const xLabs = n===1
+    ? `<text x="${(X(0)).toFixed(1)}" y="${H-6}" text-anchor="middle" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${fmtDM(dFirst)}</text>`
+    : `<text x="${pad.l}" y="${H-6}" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${fmtDM(dFirst)}</text>
+       <text x="${W-pad.r}" y="${H-6}" text-anchor="end" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${fmtDM(dLast)}</text>`;
+
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Gewichtsverlauf">
+    <line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="rgba(25,28,25,0.12)" stroke-width="1"/>
+    ${area}${goalEl}${line}${dots}${yLabHi}${yLabLo}${xLabs}
+  </svg>`;
+}
+
+function bpChartSVG(sorted){
+  if(!sorted.length){
+    return `<div class="chart-empty">Noch keine Blutdruck-Messung.<br>Trag oben deinen ersten Wert ein.</div>`;
+  }
+  const W=340, H=200, pad={l:34,r:14,t:14,b:24};
+  const ts = sorted.map(m => new Date(m.date+"T"+(m.time||"00:00")+":00").getTime());
+  const sysArr = sorted.map(m => m.sys);
+  const diaArr = sorted.map(m => m.dia);
+  let lo = Math.min(...diaArr), hi = Math.max(...sysArr);
+  if(lo===hi){ lo -= 5; hi += 5; }
+  const padY = (hi-lo)*0.12 || 5;
+  lo -= padY; hi += padY;
+  const minX = Math.min(...ts), maxX = Math.max(...ts), spanX = (maxX-minX)||1;
+  const n = sorted.length;
+  const X = i => n===1 ? (pad.l + (W-pad.r))/2 : pad.l + ((ts[i]-minX)/spanX)*(W-pad.l-pad.r);
+  const Y = v => pad.t + (1-(v-lo)/(hi-lo))*(H-pad.t-pad.b);
+
+  function series(arr, color){
+    const pts = arr.map((v,i)=> X(i).toFixed(1)+","+Y(v).toFixed(1));
+    const dots = arr.map((v,i)=> `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3" fill="${color}"/>`).join("");
+    const line = n>1 ? `<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>` : "";
+    return line+dots;
+  }
+  const sysEl = series(sysArr, "#2F6FED");
+  const diaEl = series(diaArr, "#1F9E5A");
+
+  const maxSys = Math.max(...sysArr), minDia = Math.min(...diaArr);
+  const yLabHi = `<text x="4" y="${(Y(maxSys)+4).toFixed(1)}" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${maxSys}</text>`;
+  const yLabLo = `<text x="4" y="${(Y(minDia)+4).toFixed(1)}" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${minDia}</text>`;
+  const dFirst = new Date(sorted[0].date+"T00:00:00");
+  const dLast = new Date(sorted[n-1].date+"T00:00:00");
+  const xLabs = n===1
+    ? `<text x="${X(0).toFixed(1)}" y="${H-6}" text-anchor="middle" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${fmtDM(dFirst)}</text>`
+    : `<text x="${pad.l}" y="${H-6}" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${fmtDM(dFirst)}</text>
+       <text x="${W-pad.r}" y="${H-6}" text-anchor="end" font-family="Space Mono, monospace" font-size="10" fill="#6B7168">${fmtDM(dLast)}</text>`;
+
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Blutdruckverlauf">
+    <line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="rgba(25,28,25,0.12)" stroke-width="1"/>
+    ${diaEl}${sysEl}${yLabHi}${yLabLo}${xLabs}
+  </svg>`;
+}
+
+function updatePreview(){
+  const km = parseFloat(($("km").value||"").replace(",","."));
+  const p = $("preview");
+  if(!km || km<=0){ p.textContent=""; return; }
+  const mins = minutesFor(km, settings.speed);
+  if(rideType==="fun"){
+    p.innerHTML = `${deFmt(km,1).replace(/,0$/,"")} km Spaßfahrt · ~${deFmt(mins,0)} Min Bewegung (keine Sprit-Ersparnis)`;
+  } else {
+    const l = litersFor(km, settings.cons);
+    p.innerHTML = `${deFmt(km,1).replace(/,0$/,"")} km = <b>${euro(l*settings.price)}</b> gespart · ~${deFmt(mins,0)} Min Bewegung · ${deFmt(l*CO2_PER_L,2)} kg CO₂`;
+  }
+}
+
+function addRide(){
+  const km = parseFloat(($("km").value||"").replace(",","."));
+  const date = $("date").value || new Date().toISOString().slice(0,10);
+  if(!km || km<=0){ $("km").focus(); return; }
+  const isFun = rideType==="fun";
+  const liters = isFun ? 0 : litersFor(km, settings.cons);
+  const money = isFun ? 0 : liters*settings.price;
+  rides.push({ id: Date.now(), date, km, type: rideType, cons: settings.cons, price: settings.price, speed: settings.speed, liters, money });
+  saveRides(); render();
+  $("km").value=""; updatePreview(); $("km").focus();
+}
+function removeRide(id){ rides = rides.filter(r=>r.id!==id); saveRides(); render(); }
+
+function addCommute(){
+  const km = settings.commute;
+  if(!km || km<=0){ return; }
+  const date = new Date().toISOString().slice(0,10);
+  const liters = litersFor(km, settings.cons);
+  rides.push({ id: Date.now(), date, km, type: "save", cons: settings.cons, price: settings.price, speed: settings.speed, liters, money: liters*settings.price });
+  saveRides(); render();
+  $("preview").innerHTML = `✓ Arbeitsweg eingetragen — <b>${euro(liters*settings.price)}</b> · ~${deFmt(minutesFor(km, settings.speed),0)} Min Bewegung`;
+}
+function updateCommuteLabel(){ $("commuteKm").textContent = deFmt(settings.commute,1).replace(/,0$/,""); }
+
+function addWeight(){
+  const kg = parseFloat(($("wkg").value||"").replace(",","."));
+  const date = $("wdate").value || new Date().toISOString().slice(0,10);
+  if(!kg || kg<=0){ $("wkg").focus(); return; }
+  const existing = weights.find(w => w.date===date);
+  if(existing){ existing.kg = kg; } else { weights.push({ id: Date.now(), date, kg }); }
+  saveWeights(); renderWeight();
+  $("wkg").value="";
+}
+function removeWeight(id){ weights = weights.filter(w=>w.id!==id); saveWeights(); renderWeight(); }
+
+function csvNum(n, d){ return n.toFixed(d).replace(".",","); }
+function download(name, text){
+  const blob = new Blob([text], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+function exportCsv(){
+  if(!rides.length && !fasts.length){ $("preview").textContent = "Noch nichts zum Exportieren."; return; }
+  const head = ["Datum","Kalenderwoche","Typ","km","Verbrauch (l/100km)","Spritpreis (EUR/l)","Tempo (km/h)","Sprit gespart (l)","Geld gespart (EUR)","CO2 vermieden (kg)","Bewegung (min)","Gesunde Zeit (min)"];
+  let tkm=0,tl=0,tm=0,tco2=0,tmin=0,thz=0;
+  const rows = [];
+  rides.forEach(r => {
+    const iw = isoWeek(new Date(r.date+"T00:00:00"));
+    const sp = r.speed || settings.speed;
+    const min = minutesFor(r.km, sp);
+    const hz = min*LIFE_MIN_PER_ACTIVE_MIN;
+    const co2 = r.liters*CO2_PER_L;
+    tkm+=r.km; tl+=r.liters; tm+=r.money; tco2+=co2; tmin+=min; thz+=hz;
+    rows.push({ date:r.date, ord:0, cells:[r.date, "KW "+iw.week+"/"+iw.year, (r.type==="fun"?"Spaß":"Alltag"), csvNum(r.km,1), csvNum(r.cons,1), csvNum(r.price,2), csvNum(sp,0), csvNum(r.liters,3), csvNum(r.money,2), csvNum(co2,3), csvNum(min,0), csvNum(hz,0)] });
+  });
+  fasts.forEach(iso => {
+    const iw = isoWeek(new Date(iso+"T00:00:00"));
+    rows.push({ date:iso, ord:1, cells:[iso, "KW "+iw.week+"/"+iw.year, "Habit", "", "", "", "", "", "", "", "", ""] });
+  });
+  rows.sort((a,b)=> a.date.localeCompare(b.date) || a.ord-b.ord);
+  const lines = rows.map(r => r.cells.join(";"));
+  const sum = ["Summe","","",csvNum(tkm,1),"","","",csvNum(tl,3),csvNum(tm,2),csvNum(tco2,3),csvNum(tmin,0),csvNum(thz,0)].join(";");
+  const fastSum = ["Habit-Tage gesamt", String(fasts.length)].join(";");
+  download("fahrrad-sparkonto_"+localISO(new Date())+".csv", "\ufeff"+[head.join(";"), ...lines, "", sum, fastSum].join("\r\n"));
+}
+function exportBp(){
+  if(!bp.length){ return; }
+  const sorted = bp.slice().sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time));
+  const head = ["Datum","Uhrzeit","Systolisch (mmHg)","Diastolisch (mmHg)","Puls (/min)","Bemerkung"];
+  const lines = sorted.map(m => [m.date, m.time, String(m.sys), String(m.dia), (m.pulse!=null?String(m.pulse):""), '"'+(m.note||"").replace(/"/g,'""')+'"'].join(";"));
+  download("blutdruck_"+localISO(new Date())+".csv", "\ufeff"+[head.join(";"), ...lines].join("\r\n"));
+}
+function exportWeight(){
+  if(!weights.length){ return; }
+  const sorted = weights.slice().sort((a,b)=> a.date.localeCompare(b.date));
+  const head = ["Datum","Gewicht (kg)"];
+  const lines = sorted.map(w => [w.date, csvNum(w.kg,1)].join(";"));
+  download("gewicht_"+new Date().toISOString().slice(0,10)+".csv", "\ufeff"+[head.join(";"), ...lines].join("\r\n"));
+}
+
+function bind(){
+  $("cons").value = settings.cons;
+  $("price").value = settings.price;
+  $("commute").value = settings.commute;
+  $("speed").value = settings.speed;
+  if(settings.goal) $("goal").value = settings.goal;
+  $("fastGoal").value = Math.max(1, Math.min(7, settings.fastGoal || 4));
+  const today = localISO(new Date());
+  $("date").value = today;
+  $("wdate").value = today;
+  $("bpDate").value = today;
+  const now = new Date();
+  $("bpTime").value = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  updateCommuteLabel();
+
+  $("add").onclick = addRide;
+  $("addCommute").onclick = addCommute;
+  $("addWeight").onclick = addWeight;
+  $("addBp").onclick = addBp;
+  $("exportBp").onclick = exportBp;
+  $("toggleBplist").onclick = () => {
+    const l=$("bplist"); const hidden=l.classList.toggle("hidden");
+    $("toggleBplist").textContent = hidden ? "Messungen anzeigen" : "Messungen ausblenden";
+  };
+  $("bpNote").addEventListener("keydown", e => { if(e.key==="Enter") addBp(); });
+  $("toggleFast").onclick = () => toggleFastDate(localISO(new Date()));
+  $("fastGoal").addEventListener("change", () => {
+    let v = parseInt($("fastGoal").value, 10);
+    if(!(v>=1 && v<=7)) v = 4;
+    settings.fastGoal = v; $("fastGoal").value = v; saveSettings(); renderFasting();
+  });
+  $("exportCsv").onclick = exportCsv;
+  $("exportWeight").onclick = exportWeight;
+
+  $("km").addEventListener("input", updatePreview);
+  $("km").addEventListener("keydown", e => { if(e.key==="Enter") addRide(); });
+  $("wkg").addEventListener("keydown", e => { if(e.key==="Enter") addWeight(); });
+
+  $("seg").querySelectorAll("button").forEach(b => {
+    b.onclick = () => {
+      rideType = b.dataset.type;
+      $("seg").querySelectorAll("button").forEach(x => x.classList.toggle("active", x===b));
+      updatePreview();
+    };
+  });
+
+  $("cons").addEventListener("change", () => { const v=parseFloat($("cons").value.replace(",",".")); if(v>0){ settings.cons=v; saveSettings(); updatePreview(); } });
+  $("price").addEventListener("change", () => { const v=parseFloat($("price").value.replace(",",".")); if(v>0){ settings.price=v; saveSettings(); updatePreview(); } });
+  $("commute").addEventListener("change", () => { const v=parseFloat($("commute").value.replace(",",".")); if(v>0){ settings.commute=v; saveSettings(); updateCommuteLabel(); } });
+  $("speed").addEventListener("change", () => { const v=parseFloat($("speed").value.replace(",",".")); if(v>0){ settings.speed=v; saveSettings(); updatePreview(); render(); } });
+  $("goal").addEventListener("change", () => { const raw=$("goal").value.replace(",","."); const v=parseFloat(raw); settings.goal = (v>0)?v:null; saveSettings(); renderWeight(); });
+
+  document.querySelectorAll(".collapse").forEach(btn => {
+    btn.onclick = () => {
+      const box = btn.closest(".card, .odo");
+      const collapsed = box.classList.toggle("collapsed");
+      btn.textContent = collapsed ? "einblenden" : "ausblenden";
+    };
+  });
+  $("toggleWlist").onclick = () => {
+    const l=$("wlist"); const hidden=l.classList.toggle("hidden");
+    $("toggleWlist").textContent = hidden ? "Einträge" : "schließen";
+  };
+}
+
+(function init(){
+  load();
+  bind();
+  render();
+  if("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
