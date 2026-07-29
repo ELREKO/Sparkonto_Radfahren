@@ -101,6 +101,15 @@
   .seg{display:flex;gap:6px;margin-bottom:14px}
   .seg button{flex:1;background:#fff;border:1px solid var(--hair-strong);border-radius:10px;padding:9px;font-family:"Space Grotesk";font-weight:600;font-size:13px;color:var(--muted);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
   .seg button.active{background:var(--lane);border-color:var(--lane);color:#fff}
+  .ebike-row{display:flex;align-items:center;gap:9px;margin-bottom:14px;cursor:pointer;font-family:"Inter",sans-serif;font-size:13.5px;color:var(--ink)}
+  .ebike-row input{width:18px;height:18px;flex:0 0 auto;accent-color:var(--lane);cursor:pointer}
+  .ebike-row span{text-transform:none;letter-spacing:0}
+  .ebike-mark{color:var(--road);font-size:12px}
+  .backup{margin-top:18px;padding-top:16px;border-top:1px solid var(--hair)}
+  .backup-title{font-family:"Space Grotesk";font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .backup-btns{display:flex;gap:10px}
+  .backup-btns .go{flex:1}
+  .backup-import{width:auto;flex:1;margin-bottom:0;padding:12px 18px}
 
   .preview{margin-top:12px;font-size:13.5px;color:var(--muted);min-height:20px}
   .preview b{color:var(--lane);font-family:"Space Mono"}
@@ -217,6 +226,7 @@
       <button data-type="save" class="active">Statt Auto</button>
       <button data-type="fun">Nur Spaß</button>
     </div>
+    <label class="ebike-row"><input type="checkbox" id="ebike"><span>E-Bike / Pedelec</span></label>
     <div class="row">
       <div class="in">
         <label for="km">Kilometer</label>
@@ -324,6 +334,17 @@
         </div>
       </div>
       <div class="hint">Jede Fahrt wird mit dem Preis gespeichert, der beim Eintragen gilt — so bleibt deine Ersparnis auch bei schwankenden Preisen korrekt. Das Ø-Tempo schätzt aus den km die Bewegungsminuten fürs Gesundheits-Konto.</div>
+
+      <div class="backup">
+        <div class="backup-title">Sicherung &amp; Übertragung</div>
+        <div class="backup-btns">
+          <button class="go" id="exportAll">Alles sichern</button>
+          <button class="commute backup-import" id="importBtn">Sicherung laden</button>
+          <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+        </div>
+        <div class="preview" id="backupPreview"></div>
+        <div class="hint">„Alles sichern" schreibt Fahrten, Habits, Gewicht, Blutdruck und Einstellungen in <b>eine</b> Datei — leg sie in deiner Dateien-App oder Cloud ab. Auf einem neuen Gerät oder bei einer Kollegin stellt „Sicherung laden" alles daraus wieder her; vorhandene Einträge bleiben erhalten, Neues wird ergänzt.</div>
+      </div>
     </div>
   </div>
 
@@ -459,8 +480,11 @@ function setTotal(target){
 }
 
 function render(){
-  let km=0, liters=0, money=0;
-  rides.forEach(r => { km+=r.km; liters+=r.liters; money+=r.money; });
+  let km=0, liters=0, money=0, allKm=0;
+  rides.forEach(r => {
+    allKm += r.km;
+    if(r.type !== "fun"){ km+=r.km; liters+=r.liters; money+=r.money; }
+  });
   setTotal(money);
   $("totalKm").textContent = deFmt(km,0);
   $("totalLiters").textContent = deFmt(liters,1);
@@ -504,7 +528,7 @@ function render(){
   keys.forEach(key => {
     const g = groups[key];
     let wkm=0, wmoney=0, wmin=0;
-    g.rides.forEach(r => { wkm+=r.km; wmoney+=r.money; wmin+=minutesFor(r.km, r.speed||settings.speed); });
+    g.rides.forEach(r => { wkm+=r.km; if(r.type!=="fun") wmoney+=r.money; wmin+=minutesFor(r.km, r.speed||settings.speed); });
     const start = g.start; const end = new Date(start); end.setDate(end.getDate()+6);
     const open = expandedWeeks.has(key);
     const fastN = g.fastDays.length;
@@ -524,8 +548,9 @@ function render(){
       const val = r.type==="fun"
         ? `<span class="tag">Spaß</span>`
         : `<span class="save">${euro(r.money)}</span>`;
+      const ebikeMark = r.ebike ? ` <span class="ebike-mark" title="E-Bike">⚡</span>` : "";
       li.innerHTML = `<span class="date">${fmtDM(d)}</span>
-        <span class="km">${deFmt(r.km,1).replace(/,0$/,"")} km</span>
+        <span class="km">${deFmt(r.km,1).replace(/,0$/,"")} km${ebikeMark}</span>
         ${val}
         <button class="del" title="Löschen" aria-label="Eintrag löschen">×</button>`;
       li.querySelector(".del").onclick = () => removeRide(r.id);
@@ -836,9 +861,10 @@ function addRide(){
   const date = $("date").value || new Date().toISOString().slice(0,10);
   if(!km || km<=0){ $("km").focus(); return; }
   const isFun = rideType==="fun";
+  const ebike = $("ebike").checked;
   const liters = isFun ? 0 : litersFor(km, settings.cons);
   const money = isFun ? 0 : liters*settings.price;
-  rides.push({ id: Date.now(), date, km, type: rideType, cons: settings.cons, price: settings.price, speed: settings.speed, liters, money });
+  rides.push({ id: Date.now(), date, km, type: rideType, ebike, cons: settings.cons, price: settings.price, speed: settings.speed, liters, money });
   saveRides(); render();
   $("km").value=""; updatePreview(); $("km").focus();
 }
@@ -848,8 +874,9 @@ function addCommute(){
   const km = settings.commute;
   if(!km || km<=0){ return; }
   const date = new Date().toISOString().slice(0,10);
+  const ebike = $("ebike").checked;
   const liters = litersFor(km, settings.cons);
-  rides.push({ id: Date.now(), date, km, type: "save", cons: settings.cons, price: settings.price, speed: settings.speed, liters, money: liters*settings.price });
+  rides.push({ id: Date.now(), date, km, type: "save", ebike, cons: settings.cons, price: settings.price, speed: settings.speed, liters, money: liters*settings.price });
   saveRides(); render();
   $("preview").innerHTML = `✓ Arbeitsweg eingetragen — <b>${euro(liters*settings.price)}</b> · ~${deFmt(minutesFor(km, settings.speed),0)} Min Bewegung`;
 }
@@ -877,7 +904,7 @@ function download(name, text){
 }
 function exportCsv(){
   if(!rides.length && !fasts.length){ $("preview").textContent = "Noch nichts zum Exportieren."; return; }
-  const head = ["Datum","Kalenderwoche","Typ","km","Verbrauch (l/100km)","Spritpreis (EUR/l)","Tempo (km/h)","Sprit gespart (l)","Geld gespart (EUR)","CO2 vermieden (kg)","Bewegung (min)","Gesunde Zeit (min)"];
+  const head = ["Datum","Kalenderwoche","Typ","E-Bike","km","Verbrauch (l/100km)","Spritpreis (EUR/l)","Tempo (km/h)","Sprit gespart (l)","Geld gespart (EUR)","CO2 vermieden (kg)","Bewegung (min)","Gesunde Zeit (min)"];
   let tkm=0,tl=0,tm=0,tco2=0,tmin=0,thz=0;
   const rows = [];
   rides.forEach(r => {
@@ -887,15 +914,15 @@ function exportCsv(){
     const hz = min*LIFE_MIN_PER_ACTIVE_MIN;
     const co2 = r.liters*CO2_PER_L;
     tkm+=r.km; tl+=r.liters; tm+=r.money; tco2+=co2; tmin+=min; thz+=hz;
-    rows.push({ date:r.date, ord:0, cells:[r.date, "KW "+iw.week+"/"+iw.year, (r.type==="fun"?"Spaß":"Alltag"), csvNum(r.km,1), csvNum(r.cons,1), csvNum(r.price,2), csvNum(sp,0), csvNum(r.liters,3), csvNum(r.money,2), csvNum(co2,3), csvNum(min,0), csvNum(hz,0)] });
+    rows.push({ date:r.date, ord:0, cells:[r.date, "KW "+iw.week+"/"+iw.year, (r.type==="fun"?"Spaß":"Statt Auto"), (r.ebike?"ja":"nein"), csvNum(r.km,1), csvNum(r.cons,1), csvNum(r.price,2), csvNum(sp,0), csvNum(r.liters,3), csvNum(r.money,2), csvNum(co2,3), csvNum(min,0), csvNum(hz,0)] });
   });
   fasts.forEach(iso => {
     const iw = isoWeek(new Date(iso+"T00:00:00"));
-    rows.push({ date:iso, ord:1, cells:[iso, "KW "+iw.week+"/"+iw.year, "Habit", "", "", "", "", "", "", "", "", ""] });
+    rows.push({ date:iso, ord:1, cells:[iso, "KW "+iw.week+"/"+iw.year, "Habit", "", "", "", "", "", "", "", "", "", ""] });
   });
   rows.sort((a,b)=> a.date.localeCompare(b.date) || a.ord-b.ord);
   const lines = rows.map(r => r.cells.join(";"));
-  const sum = ["Summe","","",csvNum(tkm,1),"","","",csvNum(tl,3),csvNum(tm,2),csvNum(tco2,3),csvNum(tmin,0),csvNum(thz,0)].join(";");
+  const sum = ["Summe","","","",csvNum(tkm,1),"","","",csvNum(tl,3),csvNum(tm,2),csvNum(tco2,3),csvNum(tmin,0),csvNum(thz,0)].join(";");
   const fastSum = ["Habit-Tage gesamt", String(fasts.length)].join(";");
   download("fahrrad-sparkonto_"+localISO(new Date())+".csv", "\ufeff"+[head.join(";"), ...lines, "", sum, fastSum].join("\r\n"));
 }
@@ -912,6 +939,64 @@ function exportWeight(){
   const head = ["Datum","Gewicht (kg)"];
   const lines = sorted.map(w => [w.date, csvNum(w.kg,1)].join(";"));
   download("gewicht_"+new Date().toISOString().slice(0,10)+".csv", "\ufeff"+[head.join(";"), ...lines].join("\r\n"));
+}
+
+function exportAll(){
+  const data = {
+    app: "fahrrad-sparkonto",
+    version: 1,
+    exported: new Date().toISOString(),
+    settings, rides, weights, fasts, bp
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "sparkonto-sicherung_"+localISO(new Date())+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  $("backupPreview").textContent = "✓ Sicherung erstellt — Datei wird heruntergeladen.";
+}
+
+function mergeById(target, incoming){
+  if(!Array.isArray(incoming)) return 0;
+  const ids = new Set(target.map(x => x && x.id));
+  let added = 0;
+  incoming.forEach(item => {
+    if(item && item.id != null && !ids.has(item.id)){ target.push(item); ids.add(item.id); added++; }
+  });
+  return added;
+}
+
+function importAll(file){
+  const pv = $("backupPreview");
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try{ data = JSON.parse(reader.result); }
+    catch(e){ pv.textContent = "Datei konnte nicht gelesen werden (kein gültiges Backup)."; return; }
+    if(!data || data.app !== "fahrrad-sparkonto"){
+      pv.textContent = "Das ist keine Sparkonto-Sicherung.";
+      return;
+    }
+    const aR = mergeById(rides, data.rides);
+    const aW = mergeById(weights, data.weights);
+    const aB = mergeById(bp, data.bp);
+    // fasts are plain date strings -> merge as a set
+    let aF = 0;
+    if(Array.isArray(data.fasts)){
+      const set = new Set(fasts);
+      data.fasts.forEach(d => { if(typeof d === "string" && !set.has(d)){ fasts.push(d); set.add(d); aF++; } });
+    }
+    // settings: only fill values that are still at default / empty, never overwrite the user's own
+    if(data.settings && typeof data.settings === "object"){
+      if((settings.goal==null) && data.settings.goal!=null) settings.goal = data.settings.goal;
+    }
+    saveRides(); saveWeights(); saveBp(); saveFasts(); saveSettings();
+    render();
+    pv.innerHTML = `✓ Geladen — <b>${aR}</b> Fahrten, <b>${aF}</b> Habit-Tage, <b>${aW}</b> Gewichte, <b>${aB}</b> Blutdruck neu hinzugefügt.`;
+  };
+  reader.onerror = () => { pv.textContent = "Datei konnte nicht gelesen werden."; };
+  reader.readAsText(file);
 }
 
 function bind(){
@@ -947,6 +1032,13 @@ function bind(){
   });
   $("exportCsv").onclick = exportCsv;
   $("exportWeight").onclick = exportWeight;
+  $("exportAll").onclick = exportAll;
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").onchange = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if(f) importAll(f);
+    e.target.value = "";
+  };
 
   $("km").addEventListener("input", updatePreview);
   $("km").addEventListener("keydown", e => { if(e.key==="Enter") addRide(); });
