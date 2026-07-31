@@ -41,6 +41,9 @@
   .field{text-align:center}
   .field .n{font-family:"Space Mono";font-weight:700;font-size:19px;color:#e7ece7}
   .field .u{font-family:"Space Grotesk";font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7f8a7f;margin-top:3px}
+  .odo-extra{margin-top:16px;border-top:1px solid rgba(255,255,255,.08);padding-top:14px;display:flex;flex-direction:column;gap:9px}
+  .odo-xrow{display:flex;justify-content:space-between;align-items:baseline;font-family:"Space Grotesk";font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#7f8a7f}
+  .odo-xrow span:last-child{font-family:"Space Mono";font-weight:700;color:#e7ece7;font-size:13.5px;letter-spacing:0;text-transform:none}
 
   .odo.health{margin-top:16px}
   .dual{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
@@ -381,6 +384,10 @@
       <div class="field"><div class="n" id="totalLiters">0,0</div><div class="u">Liter Sprit</div></div>
       <div class="field"><div class="n" id="totalCo2">0,0</div><div class="u">kg CO₂</div></div>
     </div>
+    <div class="odo-extra">
+      <div class="odo-xrow"><span>Spaßfahrten</span><span id="funSummary">0 · 0 km</span></div>
+      <div class="odo-xrow"><span>Gesamt</span><span id="totalSummary">0 Fahrten · 0 km</span></div>
+    </div>
   </div>
 
   <div data-c="gesundheit" class="odo health">
@@ -407,6 +414,8 @@
 const CO2_PER_L = 2.37;
 const WHO_WEEKLY_MIN = 150;
 const LIFE_MIN_PER_ACTIVE_MIN = 1.0;
+const EBIKE_SPEED = 25;
+const EBIKE_FACTOR = 2/3;
 let settings = { cons: 6, price: 1.75, commute: 30, speed: 16, goal: null, fastGoal: 4 };
 let rides = [];
 let weights = [];
@@ -444,6 +453,11 @@ function saveBp(){ if(hasStorage) try{ localStorage.setItem("bike-bp", JSON.stri
 
 function litersFor(km, cons){ return km/100*cons; }
 function minutesFor(km, speed){ return km/(speed||16)*60; }
+function effSpeed(r){ return r.ebike ? EBIKE_SPEED : (r.speed || settings.speed); }
+function rideActiveMin(r){
+  const raw = minutesFor(r.km, effSpeed(r));
+  return r.ebike ? raw * EBIKE_FACTOR : raw;
+}
 function mondayOf(dt){ const x=new Date(dt); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
 function heroTime(min){
   const h = min/60;
@@ -480,23 +494,26 @@ function setTotal(target){
 }
 
 function render(){
-  let km=0, liters=0, money=0, allKm=0;
+  let km=0, liters=0, money=0, allKm=0, carRides=0, funRides=0, funKm=0;
   rides.forEach(r => {
     allKm += r.km;
-    if(r.type !== "fun"){ km+=r.km; liters+=r.liters; money+=r.money; }
+    if(r.type !== "fun"){ km+=r.km; liters+=r.liters; money+=r.money; carRides++; }
+    else { funRides++; funKm += r.km; }
   });
   setTotal(money);
   $("totalKm").textContent = deFmt(km,0);
   $("totalLiters").textContent = deFmt(liters,1);
   $("totalCo2").textContent = deFmt(liters*CO2_PER_L,1);
-  $("ridesCount").textContent = rides.length
-    ? rides.length + (rides.length===1 ? " Fahrt gespeichert" : " Fahrten gespeichert")
-    : "Noch keine Fahrt eingetragen";
+  $("ridesCount").textContent = carRides
+    ? carRides + (carRides===1 ? " Fahrt statt Auto" : " Fahrten statt Auto")
+    : "Noch keine Fahrt statt Auto";
+  $("funSummary").textContent = `${funRides} · ${deFmt(funKm,0)} km`;
+  $("totalSummary").textContent = `${rides.length} ${rides.length===1?"Fahrt":"Fahrten"} · ${deFmt(allKm,0)} km`;
 
   let activeMin=0, weekMin=0;
   const monday = mondayOf(new Date());
   rides.forEach(r => {
-    const m = minutesFor(r.km, r.speed || settings.speed);
+    const m = rideActiveMin(r);
     activeMin += m;
     if(new Date(r.date+"T00:00:00") >= monday) weekMin += m;
   });
@@ -528,7 +545,7 @@ function render(){
   keys.forEach(key => {
     const g = groups[key];
     let wkm=0, wmoney=0, wmin=0;
-    g.rides.forEach(r => { wkm+=r.km; if(r.type!=="fun") wmoney+=r.money; wmin+=minutesFor(r.km, r.speed||settings.speed); });
+    g.rides.forEach(r => { wkm+=r.km; if(r.type!=="fun") wmoney+=r.money; wmin+=rideActiveMin(r); });
     const start = g.start; const end = new Date(start); end.setDate(end.getDate()+6);
     const open = expandedWeeks.has(key);
     const fastN = g.fastDays.length;
@@ -847,12 +864,14 @@ function updatePreview(){
   const km = parseFloat(($("km").value||"").replace(",","."));
   const p = $("preview");
   if(!km || km<=0){ p.textContent=""; return; }
-  const mins = minutesFor(km, settings.speed);
+  const ebike = $("ebike").checked;
+  const mins = ebike ? minutesFor(km, EBIKE_SPEED)*EBIKE_FACTOR : minutesFor(km, settings.speed);
+  const eNote = ebike ? " · E-Bike (25 km/h, ⅔-Wirkung)" : "";
   if(rideType==="fun"){
-    p.innerHTML = `${deFmt(km,1).replace(/,0$/,"")} km Spaßfahrt · ~${deFmt(mins,0)} Min Bewegung (keine Sprit-Ersparnis)`;
+    p.innerHTML = `${deFmt(km,1).replace(/,0$/,"")} km Spaßfahrt · ~${deFmt(mins,0)} Min Bewegung${eNote} (keine Sprit-Ersparnis)`;
   } else {
     const l = litersFor(km, settings.cons);
-    p.innerHTML = `${deFmt(km,1).replace(/,0$/,"")} km = <b>${euro(l*settings.price)}</b> gespart · ~${deFmt(mins,0)} Min Bewegung · ${deFmt(l*CO2_PER_L,2)} kg CO₂`;
+    p.innerHTML = `${deFmt(km,1).replace(/,0$/,"")} km = <b>${euro(l*settings.price)}</b> gespart · ~${deFmt(mins,0)} Min Bewegung${eNote} · ${deFmt(l*CO2_PER_L,2)} kg CO₂`;
   }
 }
 
@@ -878,7 +897,8 @@ function addCommute(){
   const liters = litersFor(km, settings.cons);
   rides.push({ id: Date.now(), date, km, type: "save", ebike, cons: settings.cons, price: settings.price, speed: settings.speed, liters, money: liters*settings.price });
   saveRides(); render();
-  $("preview").innerHTML = `✓ Arbeitsweg eingetragen — <b>${euro(liters*settings.price)}</b> · ~${deFmt(minutesFor(km, settings.speed),0)} Min Bewegung`;
+  const mins = ebike ? minutesFor(km, EBIKE_SPEED)*EBIKE_FACTOR : minutesFor(km, settings.speed);
+  $("preview").innerHTML = `✓ Arbeitsweg eingetragen — <b>${euro(liters*settings.price)}</b> · ~${deFmt(mins,0)} Min Bewegung${ebike?" · E-Bike":""}`;
 }
 function updateCommuteLabel(){ $("commuteKm").textContent = deFmt(settings.commute,1).replace(/,0$/,""); }
 
@@ -909,8 +929,8 @@ function exportCsv(){
   const rows = [];
   rides.forEach(r => {
     const iw = isoWeek(new Date(r.date+"T00:00:00"));
-    const sp = r.speed || settings.speed;
-    const min = minutesFor(r.km, sp);
+    const sp = effSpeed(r);
+    const min = rideActiveMin(r);
     const hz = min*LIFE_MIN_PER_ACTIVE_MIN;
     const co2 = r.liters*CO2_PER_L;
     tkm+=r.km; tl+=r.liters; tm+=r.money; tco2+=co2; tmin+=min; thz+=hz;
@@ -1041,6 +1061,7 @@ function bind(){
   };
 
   $("km").addEventListener("input", updatePreview);
+  $("ebike").addEventListener("change", updatePreview);
   $("km").addEventListener("keydown", e => { if(e.key==="Enter") addRide(); });
   $("wkg").addEventListener("keydown", e => { if(e.key==="Enter") addWeight(); });
 
